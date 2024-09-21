@@ -61,9 +61,9 @@ def diceEM(experiment_data: List[NDArray[np.int_]],  # pylint: disable=C0103
 
         # YOUR CODE HERE. SET REQUIRED VARIABLES BY CALLING e-step AND m-step.
         # E-step: compute the expected counts given current parameters        
-  
+        expected_count = e_step(experiment_data, bag_of_dice)
         # M-step: update the parameters given the expected counts
-      
+        updated_bag_of_dice = m_step(expected_count)
         prev_bag_of_dice: BagOfDice = bag_of_dice
         bag_of_dice = updated_bag_of_dice
 
@@ -72,7 +72,7 @@ def diceEM(experiment_data: List[NDArray[np.int_]],  # pylint: disable=C0103
 def e_step(experiment_data: List[NDArray[np.int_]],
            bag_of_dice: BagOfDice) -> NDArray:
     """Performs the Expectation Step of the EM algorithm for the dice problem.
-
+ 
     Given a set of sample rolls and a current estimate of the bag of
         dice parameters, this function computes the expected counts of how
         many times each face of each die was rolled, based on the current
@@ -105,10 +105,18 @@ def e_step(experiment_data: List[NDArray[np.int_]],
     # Then combine the posterior for each die type with the observed counts for 
     # the current draw to get the expected counts for each die type on this draw.
     # To get the total expected counts for each type, you sum the expected
-    # counts for each type over all the draws.  
+    # counts for each type over all the draws. 
 
-    # PUT YOUR CODE HERE, FOLLOWING THE DIRECTIONS ABOVE
-
+    # initiate an empty array to store the posterior probabilities
+    posteriors = np.zeros(len(bag_of_dice)) 
+    for draw in experiment_data:
+    # calculate the posterior probability of die type1 by calling dice_posterior
+        posteriors[0] = dice_posterior(draw, bag_of_dice)
+        # calculate the posterior probability of die type 2 by the fact that the probabilities sum up to 1
+        posteriors[1] = 1 - posteriors[0]
+        # iterate over the faces of the dice to compute the expected count for each face and each die
+        for index, die in enumerate(bag_of_dice.dice):
+            expected_counts[index, :len(die)] += posteriors[index] * draw
     return expected_counts
 
 
@@ -135,10 +143,13 @@ def m_step(expected_counts_by_die: NDArray[np.float_]):
     updated_type_2_frequency = np.sum(expected_counts_by_die[1])
 
     # REPLACE EACH NONE BELOW WITH YOUR CODE. 
-    updated_priors = None
-    updated_type_1_face_probs = None
-    updated_type_2_face_probs = None
-    
+    # calculate total number of counts by adding from type1 and type2
+    total_counts = updated_type_1_frequency + updated_type_2_frequency
+    # update prior by frequency / total counts
+    updated_priors = [updated_type_1_frequency / total_counts, updated_type_2_frequency / total_counts]
+    # calculate updated probability by dividing each expected counts by its frequency, and add edge case if total counts = 0
+    updated_type_1_face_probs = expected_counts_by_die[0] / updated_type_1_frequency if total_counts > 0 else np.full(expected_counts_by_die[0].shape, 1/6)  
+    updated_type_2_face_probs = expected_counts_by_die[1] / updated_type_2_frequency if total_counts > 0 else np.full(expected_counts_by_die[1].shape, 1/6) 
     updated_bag_of_dice = BagOfDice(updated_priors,
                                     [Die(updated_type_1_face_probs),
                                      Die(updated_type_2_face_probs)])
